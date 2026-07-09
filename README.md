@@ -13,8 +13,11 @@ It also ships with a one-click installer that sets up a hidden Windows scheduled
 | Per-program whitelist | No — all traffic processed | **Yes** via `--only-programs` |
 | Hot-reload of whitelist | N/A | **Yes** — edit `programs.txt` while running, applies in ~2 s |
 | One-click auto-startup | `.cmd` scripts only | **Scheduled task** installer (`install.bat`) |
+| System tray icon | None | **Yes** — right-click to edit whitelist or stop |
+| DNS auto-detection | Manual `--dns-addr` | **Yes** — tests 5 servers, picks fastest non-poisoned |
 | Hidden background run | Console window visible | **Hidden** — no taskbar clutter |
-| DNS poisoning bypass | `--dns-addr` | Same, preconfigured in `start.ps1` |
+| SNI DPI bypass | Manual `-5`/`-9` flags | **Auto** via `$bypassMode` config |
+| DNS poisoning bypass | `--dns-addr` | Same, with auto-detection |
 
 ---
 
@@ -36,11 +39,65 @@ A **watcher thread** polls `programs.txt` for mtime changes every 2 seconds. Whe
 
 1. Download the [latest release](../../releases) and unzip it.
 2. Run **`install.bat`** as administrator.
-3. That's it. GoodByeDPI-Plus is now running in the background and will start automatically on every logon.
+3. That's it. GoodByeDPI-Plus is now running in the background and will start automatically on every logon. A **system tray icon** appears near the clock — right-click it to edit the whitelist or stop the service.
 
 To stop and remove it, run **`uninstall.bat`** as administrator.
 
 > Place the folder somewhere permanent before running `install.bat`. The scheduled task points to `src\start.ps1` inside this folder. If you move the folder, run `install.bat` again.
+
+---
+
+## System tray
+
+When `start.ps1` runs (either manually or via the scheduled task), a **system tray icon** appears near the clock. Right-click it to access:
+
+- **DNS: …** — dropdown menu showing all tested DNS servers with response times and status. The currently active server is checkmarked. Click any server to instantly switch (goodbyedpi restarts with the new DNS). Includes an **Auto-detect (re-test)** option to re-run the speed test.
+- **Edit programs.txt** — opens the whitelist in your default text editor; changes hot-reload in ~2 s
+- **Exit** — kills `goodbyedpi.exe` and removes the tray icon
+
+If `goodbyedpi.exe` crashes or exits unexpectedly, the tray icon shows a warning balloon and cleans up automatically.
+
+To disable the tray icon (headless mode), run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File src\start.ps1 -NoTray
+```
+
+Or set `$enableTray = $false` at the top of `src\start.ps1`.
+
+---
+
+## DNS auto-detection
+
+At every launch, `start.ps1` can automatically test multiple DNS servers and pick the **fastest one that returns a non-poisoned response**. This ensures you always get the best DNS redirect without manual tuning.
+
+**How it works:**
+
+1. Sends a DNS query for `discord.com` (a commonly blocked domain) to all candidate servers **in parallel**.
+2. Measures each server's response time.
+3. Discards servers that return a known **ISP block-page IP** (e.g. `195.175.254.*` for Türk Telekom).
+4. Selects the fastest valid server.
+5. Falls back to **Yandex 77.88.8.8:1253** if no server responds correctly.
+
+**Candidate servers:**
+
+| Server | Port | Provider |
+|--------|------|----------|
+| 77.88.8.8 | 1253 | Yandex (alt port) |
+| 77.88.8.8 | 53 | Yandex (standard) |
+| 1.1.1.1 | 53 | Cloudflare |
+| 9.9.9.9 | 53 | Quad9 |
+| 94.140.14.14 | 53 | AdGuard |
+
+To disable auto-detection and use the hardcoded fallback:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File src\start.ps1 -NoDnsDetect
+```
+
+Or set `$autoDetectDns = $false` at the top of `src\start.ps1`.
+
+You can also customize the candidate list, timeout, test domain, and block-page IP ranges in the **Config** section at the top of `src\start.ps1`.
 
 ---
 
@@ -73,17 +130,24 @@ Changes take effect within ~2 seconds — no restart needed (hot-reload).
 
 ### Adjusting bypass parameters
 
-Edit `src\start.ps1` to change the command-line arguments passed to `goodbyedpi.exe`. The default configuration uses DNS redirect only:
+Edit `src\start.ps1` to change the command-line arguments passed to `goodbyedpi.exe`. By default, DNS redirect parameters are built dynamically from the auto-detection result. The Config section at the top of the file lets you toggle features and customize DNS candidates:
 
 ```powershell
-$params = '--dns-addr 77.88.8.8 --dns-port 1253 --dnsv6-addr 2a02:6b8::feed:0ff --dnsv6-port 1253'
+$enableTray      = $true    # System tray icon
+$autoDetectDns   = $true    # Auto-pick fastest non-poisoned DNS
+$dnsTimeoutMs    = 800      # Per-batch DNS test timeout
+$dnsTestDomain   = 'discord.com'
+$blockPageRanges = @('195.175.254.')  # ISP block-page IPs to reject
+$bypassMode      = '--auto-ttl --max-payload'  # SNI DPI bypass tricks
 ```
 
-This redirects all UDP DNS queries to **Yandex DNS on port 1253**, bypassing ISP DNS poisoning without needing to change your Windows DNS settings.
+When auto-detection is enabled, the `--dns-addr` / `--dns-port` / `--dnsv6-addr` / `--dnsv6-port` flags are set automatically. When disabled, the fallback (Yandex 77.88.8.8:1253) is used.
+
+The `$bypassMode` variable controls SNI-based DPI bypass tricks applied to whitelisted programs' traffic. The default `--auto-ttl --max-payload` is a minimal working set that bypasses SNI inspection without triggering excessive Cloudflare challenges. You can change it to `-5` (aggressive: adds `--reverse-frag`), `-9` (most aggressive), or `''` (empty — DNS redirect only, for ISPs that only do DNS poisoning). See `goodbyedpi.exe -h` for all options.
 
 If your ISP also does SNI-based DPI blocking (not just DNS poisoning), you can add bypass trick modesets such as `-9`, `-5`, `--native-frag`, etc. See `goodbyedpi.exe -h` for the full list.
 
-> **Note:** Some ISPs (e.g. in Turkey) only do DNS poisoning and have no SNI/TCP DPI blocking. In that case bypass trick modesets like `-5` are unnecessary and can trigger Cloudflare bot verification on some sites. DNS redirect alone is sufficient.
+> **Note:** Some ISPs do **only** DNS poisoning and have no SNI/TCP DPI blocking — in that case you can set `$bypassMode = ''` (empty) for DNS redirect only. However, many ISPs (including some in Turkey) do **both** DNS poisoning **and** SNI-based DPI blocking, in which case bypass tricks like `--auto-ttl --max-payload` are required. Cloudflare bot verification may appear in `curl` tests but is automatically resolved by real browsers via JavaScript challenge.
 
 ### Supported arguments
 
@@ -160,13 +224,25 @@ GitHub Actions CI also builds both architectures automatically on every push —
 
 ### Debug mode
 
-To verify the per-program gate is working correctly, temporarily add `--debug-proc` to the `$params` line in `src\start.ps1`:
+To verify the per-program gate is working correctly, run `start.ps1` with `--debug-proc` appended. The easiest way is to temporarily edit the `$params` line in `src\start.ps1`:
 
 ```powershell
-$params = '--dns-addr 77.88.8.8 --dns-port 1253 --only-programs programs.txt --debug-proc'
+$params = "--dns-addr $($dns.Addr) --dns-port $($dns.Port) --dnsv6-addr $($dns.V6Addr) --dnsv6-port $($dns.V6Port) --only-programs `"$programsList`" --debug-proc"
+```
+
+Or run goodbyedpi.exe directly:
+
+```powershell
+.\src\x86_64\goodbyedpi.exe --dns-addr 77.88.8.8 --dns-port 1253 --only-programs .\src\programs.txt --debug-proc
 ```
 
 This prints `[GATE] PASS` / `[GATE] BLOCK` decisions for the first 300 packets to stdout.
+
+To see DNS auto-detection output, run `start.ps1` from a terminal (not via `install.bat`):
+
+```powershell
+powershell -ExecutionPolicy Bypass -File src\start.ps1 -NoTray
+```
 
 ---
 
@@ -174,6 +250,7 @@ This prints `[GATE] PASS` / `[GATE] BLOCK` decisions for the first 300 packets t
 
 Run `uninstall.bat` as administrator. This:
 - Removes the scheduled task
+- Kills the tray host (`powershell.exe` running `start.ps1`)
 - Stops the running `goodbyedpi.exe` process
 - Stops the WinDivert driver
 

@@ -21,7 +21,11 @@ if (Test-Path -LiteralPath $shortcutPath) {
     Remove-Item -LiteralPath $shortcutPath -Force
 }
 
+# Kill tray host (powershell.exe running start.ps1) and goodbyedpi itself
+Get-CimInstance Win32_Process -Filter "Name='powershell.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -like '*start.ps1*' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
 Stop-Process -Name 'goodbyedpi' -Force -ErrorAction SilentlyContinue
 & sc.exe stop WinDivert 2>$null | Out-Null
 
-[System.Windows.MessageBox]::Show("GoodbyeDPI has been successfully uninstalled.`r`n`r`nI think the internet is freer now!", 'GoodbyeDPI', 'OK', 'Information')
+[System.Windows.MessageBox]::Show("GoodByeDPI-Plus has been successfully uninstalled.`r`n`r`nThe internet is freer now!", 'GoodByeDPI-Plus', 'OK', 'Information')

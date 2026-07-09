@@ -11,10 +11,10 @@
 # Browsers
 chrome.exe
 msedge.exe
-firefox.exe
 opera.exe
 brave.exe
 vivaldi.exe
+firefox.exe
 
 # Discord
 discord.exe
