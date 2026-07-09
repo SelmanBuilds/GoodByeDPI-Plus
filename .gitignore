@@ -1,0 +1,17 @@
+# Build artifacts
+*.o
+src/goodbyedpi.exe
+
+# Runtime logs
+debug*.txt
+run*.txt
+std*.txt
+test*.txt
+
+# Backups
+*.orig-backup
+*.bak
+
+# OS
+Thumbs.db
+Desktop.ini

@@ -1,0 +1,69 @@
+name: Bug report
+description: Report a software bug (crash, incorrect behavior, etc.)
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ### Please read this carefully.
+        Use this form **only for software bug reports**. A website not opening
+        is most likely **not** a bug — it usually means your ISP's DPI requires
+        different bypass settings.
+
+        Please only report software bugs, such as:
+          * program crash
+          * incorrect network packet handling
+          * antivirus incompatibility
+          * DNS redirection problems
+          * per-program whitelist not working correctly
+          * memory leaks
+          * other software issues
+
+        Make sure to search existing open and closed issues first.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Confirmation
+      options:
+        - label: I have searched existing issues and this is a software bug, not a "website doesn't open" question.
+          required: true
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: Enter your Windows version. For Windows 10 and 11 include the build/update number.
+      placeholder: ex. Windows 11 23H2
+    validations:
+      required: true
+  - type: dropdown
+    id: arch
+    attributes:
+      label: Architecture
+      options:
+        - x86_64 (64-bit)
+        - x86 (32-bit)
+    validations:
+      required: true
+  - type: input
+    id: args
+    attributes:
+      label: Command-line arguments used
+      description: What arguments does your start.ps1 or .cmd script pass to goodbyedpi.exe?
+      placeholder: ex. --dns-addr 77.88.8.8 --dns-port 1253 --only-programs programs.txt
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is.
+      placeholder: Attach screenshots for clarity if helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: additional-info
+    attributes:
+      label: Additional information
+      description: Any hints on why this bug happens, logs, or other context.

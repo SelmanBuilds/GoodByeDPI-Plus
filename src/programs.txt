@@ -1,0 +1,23 @@
+# GoodByeDPI-Plus per-program whitelist
+# One program per line. Lines starting with # are comments.
+# Matching is case-insensitive:
+#   - Entries WITH a path separator (\ or /) are matched as a
+#     substring of the full process path.
+#     Example: Google\Chrome\chrome.exe
+#   - Entries WITHOUT a separator are matched against the file
+#     name only (exact match).
+#     Example: chrome.exe
+
+# Browsers
+chrome.exe
+msedge.exe
+firefox.exe
+opera.exe
+brave.exe
+vivaldi.exe
+
+# Discord
+discord.exe
+DiscordPTB.exe
+DiscordCanary.exe
+Vesktop.exe
