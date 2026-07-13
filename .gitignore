@@ -15,3 +15,6 @@ test*.txt
 # OS
 Thumbs.db
 Desktop.ini
+
+# Internal dev files
+STATUS.md
