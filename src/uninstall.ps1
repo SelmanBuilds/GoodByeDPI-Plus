@@ -10,15 +10,23 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administra
 
 Add-Type -AssemblyName PresentationFramework
 
-$taskName = 'GoodbyeDPI'
-if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+# Remove scheduled tasks (both old and new names)
+foreach ($taskName in @('GoodbyeDPI', 'GoodByeDPI-Plus')) {
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    }
+}
+
+# Remove Start Menu shortcut
+$startMenuShortcut = Join-Path ([Environment]::GetFolderPath('Programs')) 'GoodByeDPI-Plus.lnk'
+if (Test-Path -LiteralPath $startMenuShortcut) {
+    Remove-Item -LiteralPath $startMenuShortcut -Force
 }
 
 # Remove leftover shortcut from the old VBScript-based version
-$shortcutPath = Join-Path ([Environment]::GetFolderPath('Startup')) 'GoodbyeDPI.lnk'
-if (Test-Path -LiteralPath $shortcutPath) {
-    Remove-Item -LiteralPath $shortcutPath -Force
+$oldStartupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'GoodbyeDPI.lnk'
+if (Test-Path -LiteralPath $oldStartupShortcut) {
+    Remove-Item -LiteralPath $oldStartupShortcut -Force
 }
 
 # Kill tray host (powershell.exe running start.ps1) and goodbyedpi itself

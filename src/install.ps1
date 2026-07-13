@@ -12,26 +12,46 @@ Add-Type -AssemblyName PresentationFramework
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $startPs1 = Join-Path $scriptDir 'start.ps1'
+$iconPath = Join-Path $scriptDir 'icon.ico'
 
-# Launch GoodbyeDPI now (async - start.ps1 blocks on tray loop)
-Start-Process -FilePath 'powershell.exe' -ArgumentList @('-ExecutionPolicy', 'Bypass', '-NoProfile', '-STA', '-WindowStyle', 'Hidden', '-File', $startPs1) -WindowStyle Hidden
+# Remove old scheduled tasks (migration from previous versions)
+foreach ($taskName in @('GoodbyeDPI', 'GoodByeDPI-Plus')) {
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+        Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+    }
+}
 
 # Remove leftover shortcut from the old VBScript-based version
-$shortcutPath = Join-Path ([Environment]::GetFolderPath('Startup')) 'GoodbyeDPI.lnk'
-if (Test-Path -LiteralPath $shortcutPath) {
-    Remove-Item -LiteralPath $shortcutPath -Force
+$oldStartupShortcut = Join-Path ([Environment]::GetFolderPath('Startup')) 'GoodbyeDPI.lnk'
+if (Test-Path -LiteralPath $oldStartupShortcut) {
+    Remove-Item -LiteralPath $oldStartupShortcut -Force
 }
 
-# Create a scheduled task that runs start.ps1 at logon with highest privileges (no UAC prompt)
-$taskName = 'GoodbyeDPI'
-$action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-ExecutionPolicy Bypass -NoProfile -STA -WindowStyle Hidden -File `"$startPs1`""
-$trigger = New-ScheduledTaskTrigger -AtLogOn -UserId $env:USERNAME
-$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
-$settings = New-ScheduledTaskSettingsSet -Hidden -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
-
-if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
-    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+# Create Start Menu shortcut
+$startMenuPath = Join-Path ([Environment]::GetFolderPath('Programs')) 'GoodByeDPI-Plus.lnk'
+$shell = New-Object -ComObject WScript.Shell
+$shortcut = $shell.CreateShortcut($startMenuPath)
+$shortcut.TargetPath = 'powershell.exe'
+$shortcut.Arguments = "-ExecutionPolicy Bypass -NoProfile -STA -WindowStyle Hidden -File `"$startPs1`""
+$shortcut.WorkingDirectory = $scriptDir
+if (Test-Path -LiteralPath $iconPath) {
+    $shortcut.IconLocation = $iconPath
 }
-Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+$shortcut.Description = 'GoodByeDPI-Plus - DPI bypass with per-program filtering'
+$shortcut.Save()
 
-[System.Windows.MessageBox]::Show("GoodByeDPI-Plus is now running in the background. Look for its icon in the system tray (near the clock).`r`n`r`nRight-click the tray icon to edit programs.txt or stop the service.`r`n`r`nIt will also start automatically on every logon. Long live freedom!", 'GoodByeDPI-Plus', 'OK', 'Information')
+# Launch GoodbyeDPI now (hidden, STA for tray)
+Start-Process -FilePath 'powershell.exe' -ArgumentList "-ExecutionPolicy Bypass -NoProfile -STA -WindowStyle Hidden -File `"$startPs1`"" -WindowStyle Hidden
+
+# Wait and verify goodbyedpi started
+Start-Sleep -Seconds 3
+$running = $false
+if (Get-Process -Name 'goodbyedpi' -ErrorAction SilentlyContinue) {
+    $running = $true
+}
+
+if ($running) {
+    [System.Windows.MessageBox]::Show("GoodByeDPI-Plus is now running. Look for its icon in the system tray (near the clock).`r`n`r`nStart Menu shortcut created.`r`n`r`nTo enable auto-start at logon, right-click the tray icon and check 'Auto Start'.`r`n`r`nLong live freedom!", 'GoodByeDPI-Plus', 'OK', 'Information')
+} else {
+    [System.Windows.MessageBox]::Show("GoodByeDPI-Plus was installed but the process is not running.`r`n`r`nStart it manually from the Start Menu shortcut.`r`n`r`nIf it still fails, make sure you run as administrator.", 'GoodByeDPI-Plus', 'OK', 'Warning')
+}

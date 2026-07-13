@@ -126,6 +126,46 @@ if ($TrayMode) {
 
     [void]$menu.Items.Add('-')
 
+    # Auto Start toggle
+    $autoStartItem = New-Object System.Windows.Forms.ToolStripMenuItem
+    $autoStartItem.Text = 'Auto Start'
+    $taskName = 'GoodByeDPI-Plus'
+    if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+        $autoStartItem.Checked = $true
+    }
+    $autoStartItem.Add_Click({
+        $taskName = 'GoodByeDPI-Plus'
+        try {
+            if ($this.Checked) {
+                # Disable auto-start
+                Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+                $this.Checked = $false
+                if ($script:notify) {
+                    $script:notify.ShowBalloonTip(2000, 'GoodByeDPI-Plus', 'Auto-start disabled', [System.Windows.Forms.ToolTipIcon]::Info)
+                }
+            } else {
+                # Enable auto-start
+                $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-ExecutionPolicy Bypass -NoProfile -STA -WindowStyle Hidden -File `"$($script:StartScriptPath)`""
+                $trigger = New-ScheduledTaskTrigger -AtLogOn
+                $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Highest
+                $settings = New-ScheduledTaskSettingsSet -Hidden -ExecutionTimeLimit ([TimeSpan]::Zero) -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries
+                if (Get-ScheduledTask -TaskName $taskName -ErrorAction SilentlyContinue) {
+                    Unregister-ScheduledTask -TaskName $taskName -Confirm:$false
+                }
+                Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force | Out-Null
+                $this.Checked = $true
+                if ($script:notify) {
+                    $script:notify.ShowBalloonTip(2000, 'GoodByeDPI-Plus', 'Auto-start enabled', [System.Windows.Forms.ToolTipIcon]::Info)
+                }
+            }
+        } catch {
+            [System.Windows.Forms.MessageBox]::Show("Failed to toggle auto-start.`r`n$_`r`n`r`nMake sure you run as administrator.", 'GoodByeDPI-Plus', 'OK', 'Warning')
+        }
+    })
+    [void]$menu.Items.Add($autoStartItem)
+
+    [void]$menu.Items.Add('-')
+
     $exitItem = $menu.Items.Add('Exit')
     $exitItem.Add_Click({
         try {
