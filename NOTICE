@@ -17,8 +17,8 @@ The following files were added:
   - src/proctrack.h       — public API for the per-program tracker
   - src/programs.txt      — default whitelist (editable)
   - src/start.ps1         — PowerShell launcher with DNS redirect config
-  - src/install.ps1       — scheduled task installer (auto-start at logon)
-  - src/uninstall.ps1     — scheduled task uninstaller
+  - src/install.ps1       — Start Menu shortcut installer with tray launch
+  - src/uninstall.ps1     — removes shortcut, scheduled tasks, and processes
   - install.bat           — batch wrapper for install.ps1
   - uninstall.bat         — batch wrapper for uninstall.ps1
   - .github/              — GitHub Actions CI workflow and issue templates
