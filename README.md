@@ -165,24 +165,6 @@ All original GoodbyeDPI arguments (`-p`, `-q`, `-r`, `-s`, `-e`, `-f`, `--dns-ad
 
 ---
 
-## Vesktop / Discord note
-
-**Vesktop** (and Chromium-based browsers in general) enable **DNS over HTTPS (DoH)** by default, which bypasses the UDP DNS redirect that GoodByeDPI-Plus sets up. If you use Vesktop, add this flag to its shortcut:
-
-```
---disable-features=DnsOverHttps
-```
-
-Right-click the Vesktop shortcut → Properties → add the flag to the **Target** field after the path:
-
-```
-"C:\Users\you\AppData\Local\Vesktop\Vesktop.exe" --disable-features=DnsOverHttps
-```
-
-For regular **Discord** (the official client), this is usually not needed.
-
----
-
 ## How to build from source
 
 ### Prerequisites
